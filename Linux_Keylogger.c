@@ -5,10 +5,8 @@
 #include<errno.h>
 #include<string.h>
 #include<signal.h>
-#include <assert.h>
 #include <linux/input.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include<libevdev-1.0/libevdev/libevdev.h>
 #include<ctype.h>
 
@@ -83,12 +81,7 @@ int main(int argc, char* argv[]){
         fprintf(file, "Input device name: \"%s\"\n", libevdev_get_name(dev));
         fprintf(file, "Input device ID: bus %#x vendor %#x product %#x\n", libevdev_get_id_bustype(dev), libevdev_get_id_vendor(dev), libevdev_get_id_product(dev));
 
-
-        //in the future turn the check into a do while so that if the check fails instead of exiting, restart with the next event file
-
-
-        //currently checks to see if the device is a keyboard if not exits the program
-
+	
 
         if (!libevdev_has_event_type(dev, EV_KEY) || !libevdev_has_event_code(dev, EV_KEY, KEY_SPACE)){
                 printf("This device does not support the space bar key");
