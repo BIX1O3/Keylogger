@@ -1,3 +1,4 @@
+//Created for educational purposes only. Only for legal purposes.
 #include<unistd.h>
 #include<stdlib.h>
 #include<stdio.h>
